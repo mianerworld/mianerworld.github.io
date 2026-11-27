@@ -237,6 +237,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   display:block;width:100%;text-align:left;
   padding:11px 12px;border-radius:10px;
   border:1px solid transparent;
+  cursor:pointer;
   transition:background .3s,border-color .3s;
 }
 .note-item:hover{background:rgba(247,233,205,.05)}
@@ -823,10 +824,27 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   }
 
   function select(id){
+    if (!id || id === currentId) return;
+    flush();                 // 切换前先把上一条落盘
     currentId = id;
     renderList();
     renderEditor();
   }
+
+  function flush(){
+    if (!saveTimer) return;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    var ok = save();
+    setSaved(ok ? '已保存 · ' + fmtTime(now()) : '保存失败（浏览器不允许本地存储）');
+  }
+
+  /* 点列表切换手记（事件委托，列表重绘后依然有效） */
+  listEl.addEventListener('click', function(e){
+    var btn = e.target.closest('.note-item');
+    if (!btn) return;
+    select(btn.dataset.id);
+  });
 
   /* ---------- 编辑 ---------- */
   function touch(){
@@ -915,6 +933,11 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   });
 
   /* ---------- 启动 ---------- */
+  window.addEventListener('beforeunload', flush);
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) flush();
+  });
+
   store = load();
   if (!storageOK) setSaved('本机存储不可用（file:// 下可能被限制）');
   currentId = store.length ? store[0].id : null;
